@@ -1,3 +1,9 @@
 [default]
-description = "Default permissions for the plugin"
-permissions = ["allow-ping"]
+description = "Default permissions for the alarm plugin. Grants access to all alarm management commands."
+permissions = [
+  "allow-set_alarm",
+  "allow-cancel_alarm",
+  "allow-list_alarms",
+  "allow-check_exact_alarm_permission",
+  "allow-open_exact_alarm_settings",
+]
