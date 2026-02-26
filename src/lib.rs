@@ -1,6 +1,6 @@
 use tauri::{
-  plugin::{Builder, TauriPlugin},
-  Manager, Runtime,
+    plugin::{Builder, TauriPlugin},
+    Manager, Runtime,
 };
 
 pub use models::*;
@@ -23,26 +23,32 @@ use mobile::Alerm;
 
 /// Extensions to [`tauri::App`], [`tauri::AppHandle`] and [`tauri::Window`] to access the alerm APIs.
 pub trait AlermExt<R: Runtime> {
-  fn alerm(&self) -> &Alerm<R>;
+    fn alerm(&self) -> &Alerm<R>;
 }
 
 impl<R: Runtime, T: Manager<R>> crate::AlermExt<R> for T {
-  fn alerm(&self) -> &Alerm<R> {
-    self.state::<Alerm<R>>().inner()
-  }
+    fn alerm(&self) -> &Alerm<R> {
+        self.state::<Alerm<R>>().inner()
+    }
 }
 
-/// Initializes the plugin.
+/// プラグインを初期化する
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
-  Builder::new("alerm")
-    .invoke_handler(tauri::generate_handler![commands::ping])
-    .setup(|app, api| {
-      #[cfg(mobile)]
-      let alerm = mobile::init(app, api)?;
-      #[cfg(desktop)]
-      let alerm = desktop::init(app, api)?;
-      app.manage(alerm);
-      Ok(())
-    })
-    .build()
+    Builder::new("alerm")
+        .invoke_handler(tauri::generate_handler![
+            commands::set_alarm,
+            commands::cancel_alarm,
+            commands::list_alarms,
+            commands::check_exact_alarm_permission,
+            commands::open_exact_alarm_settings,
+        ])
+        .setup(|app, api| {
+            #[cfg(mobile)]
+            let alerm = mobile::init(app, api)?;
+            #[cfg(desktop)]
+            let alerm = desktop::init(app, api)?;
+            app.manage(alerm);
+            Ok(())
+        })
+        .build()
 }
