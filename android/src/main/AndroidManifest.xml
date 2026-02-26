@@ -1,3 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 通知を表示する権限 (Android 13 / API 33 以上で必要) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 正確なアラームをスケジュールする権限 (Android 12 / API 31 以上で必要) -->
+    <!-- ユーザーが設定画面で許可する必要がある。openExactAlarmSettings() を使って誘導できる -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <!-- 端末再起動後にアラームを復元するための権限 -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application>
+
+        <!-- アラームが発火したときに通知を表示する BroadcastReceiver -->
+        <!-- AlarmManager の PendingIntent 経由で受信するため exported="false" で OK -->
+        <receiver
+            android:name="com.plugin.alerm.AlarmReceiver"
+            android:exported="false" />
+
+        <!-- 端末再起動後にアラームを再スケジュールする BroadcastReceiver -->
+        <receiver
+            android:name="com.plugin.alerm.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- アプリ更新後もアラームを復元する -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
 </manifest>
