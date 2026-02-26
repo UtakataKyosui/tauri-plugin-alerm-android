@@ -1,0 +1,9 @@
+{
+  "enabledPlugins": {
+    "code-review@utakata-plugins": true,
+    "jj-vcs-workflow@utakata-plugins": true,
+    "poml-assist@utakata-plugins": true,
+    "tdd-enforce@utakata-plugins": true,
+    "rust-development@utakata-plugins": true
+  }
+}
