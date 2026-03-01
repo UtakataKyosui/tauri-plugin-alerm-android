@@ -73,47 +73,18 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 
     /**
-     * assets フォルダ内の音声ファイルを MediaPlayer で再生する。失敗時はデフォルト音にフォールバック。
-     * - MediaPlayer を try 外で初期化し、catch で必ず release() する
-     * - AssetFileDescriptor は use {} で確実に close する
+     * MediaPlayer のセットアップと再生を行う共通ヘルパー。
+     * - AudioAttributes / リスナーの設定を一元管理
+     * - 初期化失敗（catch）・再生中エラー（onErrorListener）いずれも onErrorFallback を呼び出す
      * - リスナーは prepare()/start() より前に設定し、短音声でも release() を取りこぼさない
+     *
+     * @param dataSourceProvider MediaPlayer にデータソースを設定するラムダ
+     * @param onErrorFallback エラー発生時のフォールバック処理（省略可）
      */
-    private fun playAssetSound(context: Context, soundUri: String) {
-        val mediaPlayer = MediaPlayer()
-        try {
-            context.assets.openFd(soundUri).use { afd ->
-                mediaPlayer.apply {
-                    setAudioAttributes(
-                        AudioAttributes.Builder()
-                            .setUsage(AudioAttributes.USAGE_ALARM)
-                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                            .build()
-                    )
-                    setOnCompletionListener { it.release() }
-                    setOnErrorListener { mp, _, _ ->
-                        mp.release()
-                        true
-                    }
-                    setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                    prepare()
-                    start()
-                }
-            }
-        } catch (e: Exception) {
-            mediaPlayer.release()
-            // assets が見つからない場合はデフォルト音にフォールバック
-            playDefaultAlarmSound(context)
-        }
-    }
-
-    /**
-     * システムのデフォルトアラーム音を MediaPlayer で再生する。
-     * Ringtone は stop() を呼ばないと無限再生になるため、ワンショット再生できる MediaPlayer を使う。
-     * uri が null（デフォルト音未設定）の場合は無音で戻る。
-     */
-    private fun playDefaultAlarmSound(context: Context) {
-        val uri: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: return
-
+    private fun playSound(
+        dataSourceProvider: (MediaPlayer) -> Unit,
+        onErrorFallback: (() -> Unit)? = null,
+    ) {
         val mediaPlayer = MediaPlayer()
         try {
             mediaPlayer.apply {
@@ -126,14 +97,43 @@ class AlarmReceiver : BroadcastReceiver() {
                 setOnCompletionListener { it.release() }
                 setOnErrorListener { mp, _, _ ->
                     mp.release()
+                    onErrorFallback?.invoke()
                     true
                 }
-                setDataSource(context, uri)
+                dataSourceProvider(this)
                 prepare()
                 start()
             }
         } catch (e: Exception) {
             mediaPlayer.release()
+            onErrorFallback?.invoke()
         }
+    }
+
+    /**
+     * assets フォルダ内の音声ファイルを再生する。
+     * 初期化失敗・再生中デコードエラーともにデフォルト音にフォールバック。
+     */
+    private fun playAssetSound(context: Context, soundUri: String) {
+        playSound(
+            dataSourceProvider = { mp ->
+                context.assets.openFd(soundUri).use { afd ->
+                    mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                }
+            },
+            onErrorFallback = { playDefaultAlarmSound(context) },
+        )
+    }
+
+    /**
+     * システムのデフォルトアラーム音を再生する。
+     * getActualDefaultRingtoneUri() で端末に実際に設定されている URI を取得する。
+     * アラーム音が未設定（null）の場合は無音で戻る。
+     */
+    private fun playDefaultAlarmSound(context: Context) {
+        val uri: Uri = RingtoneManager.getActualDefaultRingtoneUri(
+            context, RingtoneManager.TYPE_ALARM
+        ) ?: return
+        playSound(dataSourceProvider = { mp -> mp.setDataSource(context, uri) })
     }
 }
