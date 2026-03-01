@@ -43,7 +43,8 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
 
     companion object {
         const val PREFS_NAME = "tauri_alerm_alarms"
-        const val CHANNEL_ID = "tauri_alerm_channel"
+        // v2: setSound(null, null) を反映するためチャンネル ID を変更（Android は既存チャンネルの設定変更を無視するため）
+        const val CHANNEL_ID = "tauri_alerm_channel_v2"
     }
 
     override fun load(webView: WebView) {
