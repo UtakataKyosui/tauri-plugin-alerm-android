@@ -72,6 +72,12 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Rust Library
+        run: cargo build --lib
+
       - name: Build Android Library
         run: cd android && gradle build -x test
 
