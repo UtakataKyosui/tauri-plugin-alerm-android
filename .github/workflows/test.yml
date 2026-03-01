@@ -75,6 +75,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install webkit2gtk
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y webkit2gtk-4.1
+
       - name: Build Rust Library
         run: cargo build --lib
 
