@@ -20,6 +20,8 @@ pub struct SetAlarmRequest {
     pub allow_while_idle: Option<bool>,
     /// 繰り返し間隔（ミリ秒）。省略時は一度だけ発火
     pub repeat_interval_ms: Option<i64>,
+    /// アラーム音声ファイルのパス（アプリ assets 内）。省略時はデフォルトアラーム音
+    pub sound_uri: Option<String>,
 }
 
 /// スケジュール済みアラームの情報
@@ -33,6 +35,8 @@ pub struct AlarmInfo {
     pub alarm_type: String,
     pub exact: bool,
     pub repeat_interval_ms: Option<i64>,
+    /// アラーム音声ファイルのパス（アプリ assets 内）。省略時はデフォルトアラーム音
+    pub sound_uri: Option<String>,
 }
 
 /// アラームをキャンセルするリクエスト
@@ -75,6 +79,7 @@ mod tests {
             exact: Some(true),
             allow_while_idle: Some(true),
             repeat_interval_ms: None,
+            sound_uri: None,
         };
         let json = serde_json::to_string(&req).unwrap();
 
@@ -119,6 +124,45 @@ mod tests {
         assert_eq!(req.alarm_type.as_deref(), Some("RTC"));
         assert_eq!(req.exact, Some(false));
         assert_eq!(req.repeat_interval_ms, Some(3_600_000));
+        assert!(req.sound_uri.is_none());
+    }
+
+    #[test]
+    fn set_alarm_request_with_sound_uri_serializes_camel_case() {
+        let req = SetAlarmRequest {
+            id: 5,
+            title: "Sound Test".to_string(),
+            message: None,
+            trigger_at_ms: 1_700_000_000_000,
+            alarm_type: None,
+            exact: None,
+            allow_while_idle: None,
+            repeat_interval_ms: None,
+            sound_uri: Some("sounds/alarm.mp3".to_string()),
+        };
+        let json = serde_json::to_string(&req).unwrap();
+
+        assert!(
+            json.contains("\"soundUri\""),
+            "soundUri が含まれない: {json}"
+        );
+        assert!(
+            json.contains("\"sounds/alarm.mp3\""),
+            "soundUri の値が含まれない: {json}"
+        );
+    }
+
+    #[test]
+    fn set_alarm_request_with_sound_uri_deserializes() {
+        let json = r#"{
+            "id": 10,
+            "title": "With Sound",
+            "triggerAtMs": 1000000,
+            "soundUri": "sounds/wake.mp3"
+        }"#;
+        let req: SetAlarmRequest = serde_json::from_str(json).unwrap();
+
+        assert_eq!(req.sound_uri.as_deref(), Some("sounds/wake.mp3"));
     }
 
     // ------------------------------------------------------------------
@@ -135,6 +179,7 @@ mod tests {
             alarm_type: "RTC_WAKEUP".to_string(),
             exact: true,
             repeat_interval_ms: None,
+            sound_uri: None,
         };
         let json = serde_json::to_string(&info).unwrap();
         let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
@@ -145,6 +190,30 @@ mod tests {
         assert_eq!(restored.alarm_type, "RTC_WAKEUP");
         assert!(restored.exact);
         assert!(restored.repeat_interval_ms.is_none());
+        assert!(restored.sound_uri.is_none());
+    }
+
+    #[test]
+    fn alarm_info_with_sound_uri_round_trip() {
+        let info = AlarmInfo {
+            id: 8,
+            title: "Sound Alarm".to_string(),
+            message: None,
+            trigger_at_ms: 1_700_000_000_000,
+            alarm_type: "RTC_WAKEUP".to_string(),
+            exact: true,
+            repeat_interval_ms: None,
+            sound_uri: Some("sounds/alarm.mp3".to_string()),
+        };
+        let json = serde_json::to_string(&info).unwrap();
+
+        assert!(
+            json.contains("\"soundUri\""),
+            "soundUri が含まれない: {json}"
+        );
+
+        let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.sound_uri.as_deref(), Some("sounds/alarm.mp3"));
     }
 
     #[test]
@@ -157,6 +226,7 @@ mod tests {
             alarm_type: "RTC".to_string(),
             exact: false,
             repeat_interval_ms: Some(86_400_000),
+            sound_uri: None,
         };
         let json = serde_json::to_string(&info).unwrap();
         let restored: AlarmInfo = serde_json::from_str(&json).unwrap();
@@ -193,6 +263,7 @@ mod tests {
                     alarm_type: "RTC_WAKEUP".to_string(),
                     exact: true,
                     repeat_interval_ms: None,
+                    sound_uri: None,
                 },
                 AlarmInfo {
                     id: 2,
@@ -202,6 +273,7 @@ mod tests {
                     alarm_type: "RTC".to_string(),
                     exact: false,
                     repeat_interval_ms: Some(60_000),
+                    sound_uri: Some("sounds/alarm.mp3".to_string()),
                 },
             ],
         };

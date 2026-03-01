@@ -30,6 +30,7 @@ class SetAlarmArgs {
     var exact: Boolean? = null
     var allowWhileIdle: Boolean? = null
     var repeatIntervalMs: Long? = null
+    var soundUri: String? = null
 }
 
 @InvokeArg
@@ -79,6 +80,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             putExtra("alarmId", args.id)
             putExtra("title", args.title)
             putExtra("message", args.message ?: "")
+            if (args.soundUri != null) putExtra("soundUri", args.soundUri)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             activity, args.id, intent,
@@ -138,6 +140,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             put("alarmType", alarmTypeName)
             put("exact", exact)
             put("repeatIntervalMs", repeatIntervalMs)
+            put("soundUri", args.soundUri)
         }
         saveAlarm(activity, args.id, alarmInfo)
 
@@ -149,6 +152,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         ret.put("alarmType", alarmTypeName)
         ret.put("exact", exact)
         if (repeatIntervalMs != null) ret.put("repeatIntervalMs", repeatIntervalMs)
+        if (args.soundUri != null) ret.put("soundUri", args.soundUri)
         invoke.resolve(ret)
     }
 
@@ -184,6 +188,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             obj.put("alarmType", alarm.getString("alarmType"))
             obj.put("exact", alarm.getBoolean("exact"))
             if (!alarm.isNull("repeatIntervalMs")) obj.put("repeatIntervalMs", alarm.getLong("repeatIntervalMs"))
+            if (!alarm.isNull("soundUri")) obj.put("soundUri", alarm.getString("soundUri"))
             arr.put(obj)
         }
         val ret = JSObject()

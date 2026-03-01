@@ -16,6 +16,8 @@ export interface AlarmInfo {
   exact: boolean
   /** 繰り返し間隔（ミリ秒）。undefined の場合は一度だけ発火 */
   repeatIntervalMs?: number
+  /** アラーム音声ファイルのパス（assets 内）。未指定時はデフォルトアラーム音 */
+  soundUri?: string
 }
 
 /** Android AlarmManager のアラームタイプ */
@@ -63,6 +65,12 @@ export interface SetAlarmOptions {
    * 繰り返しアラームは Android 4.4+ では不正確なアラームになる。
    */
   repeatIntervalMs?: number
+  /**
+   * アラーム音声ファイルのパス（アプリ assets 内）
+   * 例: "sounds/alarm.mp3"
+   * 省略時はシステムのデフォルトアラーム音を使用する。
+   */
+  soundUri?: string
 }
 
 /** checkExactAlarmPermission() のレスポンス */
