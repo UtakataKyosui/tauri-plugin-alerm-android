@@ -78,6 +78,30 @@ jobs:
       - name: Build Rust Library
         run: cargo build --lib
 
+      - name: Create tauri-api directory
+        run: |
+          mkdir -p .tauri/tauri-api
+          cat > .tauri/tauri-api/build.gradle.kts << 'EOF'
+          plugins {
+              id("com.android.library")
+          }
+
+          android {
+              namespace = "com.tauri.android"
+              compileSdk = 36
+
+              defaultConfig {
+                  minSdk = 21
+              }
+
+              buildTypes {
+                  release {
+                      isMinifyEnabled = false
+                  }
+              }
+          }
+          EOF
+
       - name: Build Android Library
         run: cd android && gradle build -x test
 
