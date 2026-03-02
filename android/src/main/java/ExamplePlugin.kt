@@ -85,7 +85,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         val repeatIntervalMs = args.repeatIntervalMs
 
         val snoozeEnabled = args.snoozeEnabled ?: false
-        val snoozeDurationMs = args.snoozeDurationMs ?: DEFAULT_SNOOZE_DURATION_MS
+        val snoozeDurationMs = clampSnoozeDuration(args.snoozeDurationMs)
         val snoozeLabel = args.snoozeLabel ?: DEFAULT_SNOOZE_LABEL
         val intent = Intent(activity, AlarmReceiver::class.java).apply {
             putExtra("alarmId", args.id)
@@ -96,6 +96,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             putExtra("snoozeDurationMs", snoozeDurationMs)
             putExtra("snoozeLabel", snoozeLabel)
             putExtra("alarmType", alarmTypeName)
+            putExtra("allowWhileIdle", allowWhileIdle)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             activity, args.id, intent,
@@ -109,34 +110,7 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
                 // 繰り返しアラーム（Android 4.4+ では不正確）
                 alarmManager.setInexactRepeating(alarmType, triggerAtMs, repeatIntervalMs, pendingIntent)
             }
-            exact -> {
-                when {
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-                        if (alarmManager.canScheduleExactAlarms()) {
-                            if (allowWhileIdle) {
-                                alarmManager.setExactAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
-                            } else {
-                                alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
-                            }
-                        } else {
-                            // パーミッション未付与 → 不正確なアラームにフォールバック
-                            if (allowWhileIdle) {
-                                alarmManager.setAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
-                            } else {
-                                alarmManager.set(alarmType, triggerAtMs, pendingIntent)
-                            }
-                        }
-                    }
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                        if (allowWhileIdle) {
-                            alarmManager.setExactAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
-                        } else {
-                            alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
-                        }
-                    }
-                    else -> alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
-                }
-            }
+            exact -> scheduleExactAlarm(alarmManager, alarmType, triggerAtMs, pendingIntent, allowWhileIdle)
             else -> {
                 if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)

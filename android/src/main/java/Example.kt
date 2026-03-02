@@ -19,6 +19,29 @@ import androidx.core.app.NotificationCompat
  */
 class AlarmReceiver : BroadcastReceiver() {
 
+    companion object {
+        /**
+         * 現在再生中の MediaPlayer を保持する。
+         * SnoozeReceiver からスヌーズ押下時に [stopCurrentSound] を呼び、音尌の再生を止める。
+         */
+        @Volatile
+        private var currentMediaPlayer: android.media.MediaPlayer? = null
+
+        /**
+         * 現在再生中のアラーム音を停止し、リソースを解放する。
+         * スヌーズボタンが押された際に SnoozeReceiver から呼び出す。
+         */
+        fun stopCurrentSound() {
+            currentMediaPlayer?.let { mp ->
+                runCatching {
+                    if (mp.isPlaying) mp.stop()
+                    mp.release()
+                }
+                currentMediaPlayer = null
+            }
+        }
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getIntExtra("alarmId", 0)
         val title = intent.getStringExtra("title") ?: "Alarm"
@@ -107,21 +130,26 @@ class AlarmReceiver : BroadcastReceiver() {
      * @param onErrorFallback エラー発生時のフォールバック処理（省略可）
      */
     private fun playSound(
-        dataSourceProvider: (MediaPlayer) -> Unit,
+        dataSourceProvider: (android.media.MediaPlayer) -> Unit,
         onErrorFallback: (() -> Unit)? = null,
     ) {
-        val mediaPlayer = MediaPlayer()
+        val mediaPlayer = android.media.MediaPlayer()
+        currentMediaPlayer = mediaPlayer
         try {
             mediaPlayer.apply {
                 setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setOnCompletionListener { it.release() }
+                setOnCompletionListener {
+                    it.release()
+                    if (currentMediaPlayer === it) currentMediaPlayer = null
+                }
                 setOnErrorListener { mp, _, _ ->
                     mp.release()
+                    if (currentMediaPlayer === mp) currentMediaPlayer = null
                     onErrorFallback?.invoke()
                     true
                 }
@@ -131,6 +159,7 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             mediaPlayer.release()
+            if (currentMediaPlayer === mediaPlayer) currentMediaPlayer = null
             onErrorFallback?.invoke()
         }
     }

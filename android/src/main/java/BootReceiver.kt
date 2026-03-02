@@ -37,6 +37,7 @@ class BootReceiver : BroadcastReceiver() {
             val alarmTypeName = alarm.optString("alarmType", "RTC_WAKEUP")
             val alarmType = parseAlarmType(alarmTypeName)
             val exact = alarm.optBoolean("exact", true)
+            val allowWhileIdle = alarm.optBoolean("allowWhileIdle", true)
             val soundUri = alarm.optString("soundUri", null)
             val snoozeEnabled = alarm.optBoolean("snoozeEnabled", false)
             val snoozeDurationMs = alarm.optLong("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
@@ -47,6 +48,7 @@ class BootReceiver : BroadcastReceiver() {
                 putExtra("title", title)
                 putExtra("message", message)
                 putExtra("alarmType", alarmTypeName)
+                putExtra("allowWhileIdle", allowWhileIdle)
                 if (soundUri != null) putExtra("soundUri", soundUri)
                 putExtra("snoozeEnabled", snoozeEnabled)
                 putExtra("snoozeDurationMs", snoozeDurationMs)
@@ -64,7 +66,7 @@ class BootReceiver : BroadcastReceiver() {
                 repeatIntervalMs != null ->
                     alarmManager.setInexactRepeating(alarmType, effectiveTrigger, repeatIntervalMs, pendingIntent)
                 exact ->
-                    scheduleExactAlarm(alarmManager, alarmType, effectiveTrigger, pendingIntent)
+                    scheduleExactAlarm(alarmManager, alarmType, effectiveTrigger, pendingIntent, allowWhileIdle)
                 else -> {
                     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                         alarmManager.setAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
