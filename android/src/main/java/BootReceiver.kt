@@ -30,9 +30,10 @@ class BootReceiver : BroadcastReceiver() {
             val triggerAtMs = alarm.getLong("triggerAtMs")
             val repeatIntervalMs = if (alarm.isNull("repeatIntervalMs")) null
                                    else alarm.getLong("repeatIntervalMs")
+            // 空配列は null 扱い（repeatDaysOfWeek が空でもクラッシュしないよう正規化）
             val repeatDaysOfWeek: List<Int>? = if (alarm.has("repeatDaysOfWeek") && !alarm.isNull("repeatDaysOfWeek")) {
                 val arr = alarm.getJSONArray("repeatDaysOfWeek")
-                List(arr.length()) { arr.getInt(it) }
+                if (arr.length() > 0) List(arr.length()) { arr.getInt(it) } else null
             } else null
             val originalTriggerAtMs = alarm.optLong("originalTriggerAtMs", triggerAtMs)
 
@@ -66,6 +67,7 @@ class BootReceiver : BroadcastReceiver() {
             )
 
             // 次回発火時刻を計算する
+            // repeatDaysOfWeek を優先し、両立時は repeatIntervalMs を無視（setAlarm と同じ制約）
             val effectiveTrigger = when {
                 repeatDaysOfWeek != null ->
                     nextTriggerForDaysOfWeek(originalTriggerAtMs, repeatDaysOfWeek, now)
@@ -73,23 +75,50 @@ class BootReceiver : BroadcastReceiver() {
                     calculateEffectiveTriggerTime(triggerAtMs, repeatIntervalMs, now)
             }
 
+            // SharedPreferences の triggerAtMs を次回発火時刻に更新
+            val prefs = context.getSharedPreferences(AlermPlugin.PREFS_NAME, Context.MODE_PRIVATE)
+            val allAlarms = org.json.JSONObject(prefs.getString("alarms", "{}") ?: "{}")
+            val key = id.toString()
+            if (allAlarms.has(key)) {
+                allAlarms.getJSONObject(key).put("triggerAtMs", effectiveTrigger)
+                prefs.edit().putString("alarms", allAlarms.toString()).apply()
+            }
+
             when {
-                repeatIntervalMs != null -> {
+                repeatIntervalMs != null && repeatDaysOfWeek == null -> {
+                    // repeatDaysOfWeek が優先されるため、repeatIntervalMs は repeatDaysOfWeek がない場合のみ
                     alarmManager.setInexactRepeating(alarmType, effectiveTrigger, repeatIntervalMs, pendingIntent)
                 }
                 exact -> {
                     when {
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms() -> {
-                            alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                            if (alarmManager.canScheduleExactAlarms()) {
+                                if (allowWhileIdle) {
+                                    alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
+                                } else {
+                                    alarmManager.setExact(alarmType, effectiveTrigger, pendingIntent)
+                                }
+                            } else {
+                                // パーミッション未付与 → 不正確なアラームにフォールバック
+                                if (allowWhileIdle) {
+                                    alarmManager.setAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
+                                } else {
+                                    alarmManager.set(alarmType, effectiveTrigger, pendingIntent)
+                                }
+                            }
                         }
                         Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                            alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
+                            if (allowWhileIdle) {
+                                alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
+                            } else {
+                                alarmManager.setExact(alarmType, effectiveTrigger, pendingIntent)
+                            }
                         }
                         else -> alarmManager.setExact(alarmType, effectiveTrigger, pendingIntent)
                     }
                 }
                 else -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (allowWhileIdle && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         alarmManager.setAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
                     } else {
                         alarmManager.set(alarmType, effectiveTrigger, pendingIntent)

@@ -316,4 +316,60 @@ class AlermPluginUnitTest {
         assertEquals(30, resultCal.get(Calendar.MINUTE))
         assertEquals(15, resultCal.get(Calendar.SECOND))
     }
+
+    /**
+     * 0..6 外の曜日値（例: -1, 7）を渡したとき IllegalArgumentException がスローされること。
+     */
+    @Test(expected = IllegalArgumentException::class)
+    fun nextTriggerForDaysOfWeek_invalidDayValue_throwsIllegalArgument() {
+        nextTriggerForDaysOfWeek(
+            triggerAtMs = System.currentTimeMillis(),
+            days = listOf(1, 7), // 7 は無効
+            fromMs = System.currentTimeMillis(),
+        )
+    }
+
+    /**
+     * 重複した曜日値を渡しても正しく動作すること（重複排除後に通常処理される）。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_duplicateDays_deduplicates() {
+        // 月曜 10:00 を from にセット
+        val from = calendarAt(Calendar.MONDAY, 10, 0)
+        val trigger = calendarAt(Calendar.MONDAY, 7, 0)
+
+        // 月(1)・月(1) → 重複しているが次の水曜(3)が返るべき
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(1, 1, 3), // 1 が重複
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        assertEquals(Calendar.WEDNESDAY, resultCal.get(Calendar.DAY_OF_WEEK))
+        assertTrue(result > from.timeInMillis)
+    }
+
+    /**
+     * 同じ曜日のみ指定し、当日の時刻が既に過ぎている場合、offset=7（来週）が返ること。
+     */
+    @Test
+    fun nextTriggerForDaysOfWeek_singleDayAlreadyPassed_returnsNextWeek() {
+        // 金曜 23:59 を from にセット（金(5)のみ指定、今日の時刻は過ぎている）
+        val from = calendarAt(Calendar.FRIDAY, 23, 59)
+        val trigger = calendarAt(Calendar.FRIDAY, 6, 0)
+
+        val result = nextTriggerForDaysOfWeek(
+            triggerAtMs = trigger.timeInMillis,
+            days = listOf(5), // 金曜のみ
+            fromMs = from.timeInMillis,
+        )
+
+        val resultCal = Calendar.getInstance().apply { timeInMillis = result }
+        // 来週金曜が返るはず
+        assertEquals(Calendar.FRIDAY, resultCal.get(Calendar.DAY_OF_WEEK))
+        assertTrue(result > from.timeInMillis)
+        // 7日後以上
+        assertTrue(result >= from.timeInMillis + 6 * 24 * 60 * 60 * 1000L)
+    }
 }

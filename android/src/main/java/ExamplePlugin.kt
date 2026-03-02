@@ -78,13 +78,25 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         val alarmTypeName = args.alarmType ?: "RTC_WAKEUP"
         val alarmType = parseAlarmType(alarmTypeName)
         val repeatIntervalMs = args.repeatIntervalMs
-        val repeatDaysOfWeek = args.repeatDaysOfWeek
+        // 空配列は null と同等に扱う（null 正規化）
+        val normalizedDays: List<Int>? = args.repeatDaysOfWeek?.takeIf { it.isNotEmpty() }
 
-        // 曜日繰り返しの場合、発火時刻を次の指定曜日に調整する
+        // repeatIntervalMs と repeatDaysOfWeek の両立は禁止
+        if (repeatIntervalMs != null && normalizedDays != null) {
+            invoke.reject("repeatIntervalMs と repeatDaysOfWeek は同時に指定できません")
+            return
+        }
+
+        // 曜日繰り返しの場合、発火時刻を次の指定曜日に必ず補正する
         val now = System.currentTimeMillis()
-        val triggerAtMs = if (repeatDaysOfWeek != null && repeatDaysOfWeek.isNotEmpty()) {
-            if (args.triggerAtMs > now) args.triggerAtMs
-            else nextTriggerForDaysOfWeek(args.triggerAtMs, repeatDaysOfWeek, now)
+        val triggerAtMs = if (normalizedDays != null) {
+            val dayOfWeekAtTrigger = java.util.Calendar.getInstance().apply { timeInMillis = args.triggerAtMs }
+                .get(java.util.Calendar.DAY_OF_WEEK) - 1
+            if (dayOfWeekAtTrigger in normalizedDays && args.triggerAtMs > now) {
+                args.triggerAtMs
+            } else {
+                nextTriggerForDaysOfWeek(args.triggerAtMs, normalizedDays, now)
+            }
         } else {
             args.triggerAtMs
         }
@@ -97,8 +109,8 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             putExtra("alarmType", alarmTypeName)
             putExtra("exact", exact)
             putExtra("allowWhileIdle", allowWhileIdle)
-            if (repeatDaysOfWeek != null) {
-                putExtra("repeatDaysOfWeek", repeatDaysOfWeek.toIntArray())
+            if (normalizedDays != null) {
+                putExtra("repeatDaysOfWeek", normalizedDays.toIntArray())
                 putExtra("originalTriggerAtMs", args.triggerAtMs)
             }
         }
@@ -162,10 +174,8 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             put("allowWhileIdle", allowWhileIdle)
             put("repeatIntervalMs", repeatIntervalMs)
             put("soundUri", args.soundUri)
-            if (repeatDaysOfWeek != null) {
-                put("repeatDaysOfWeek", org.json.JSONArray().also { arr ->
-                    repeatDaysOfWeek.forEach { arr.put(it) }
-                })
+            if (normalizedDays != null) {
+                put("repeatDaysOfWeek", org.json.JSONArray(normalizedDays))
                 put("originalTriggerAtMs", args.triggerAtMs)
             }
         }
@@ -180,10 +190,8 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         ret.put("exact", exact)
         if (repeatIntervalMs != null) ret.put("repeatIntervalMs", repeatIntervalMs)
         if (args.soundUri != null) ret.put("soundUri", args.soundUri)
-        if (repeatDaysOfWeek != null) {
-            val arr = JSArray()
-            repeatDaysOfWeek.forEach { arr.put(it) }
-            ret.put("repeatDaysOfWeek", arr)
+        if (normalizedDays != null) {
+            ret.put("repeatDaysOfWeek", JSArray.from(normalizedDays))
         }
         invoke.resolve(ret)
     }

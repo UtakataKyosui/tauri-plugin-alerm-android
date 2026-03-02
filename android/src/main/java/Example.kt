@@ -77,8 +77,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(alarmId, notification)
 
-        // 曜日繰り返しの場合、次回の発火時刻を計算して再登録する
-        if (repeatDaysOfWeek != null && originalTriggerAtMs >= 0) {
+        // 曜日繰り返しの場合、次回の発火時刻を計算して再登録する（空配列クラッシュ防止）
+        if (repeatDaysOfWeek != null && repeatDaysOfWeek.isNotEmpty() && originalTriggerAtMs >= 0) {
             rescheduleForNextDay(
                 context = context,
                 alarmId = alarmId,
