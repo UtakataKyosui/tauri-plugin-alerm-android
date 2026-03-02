@@ -5,8 +5,6 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
-
 /**
  * 端末再起動後にアラームを復元する BroadcastReceiver。
  * AlarmManager のアラームはデバイス再起動で消えるため、
@@ -63,22 +61,12 @@ class BootReceiver : BroadcastReceiver() {
             val effectiveTrigger = calculateEffectiveTriggerTime(triggerAtMs, repeatIntervalMs, now)
 
             when {
-                repeatIntervalMs != null -> {
+                repeatIntervalMs != null ->
                     alarmManager.setInexactRepeating(alarmType, effectiveTrigger, repeatIntervalMs, pendingIntent)
-                }
-                exact -> {
-                    when {
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && alarmManager.canScheduleExactAlarms() -> {
-                            alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
-                        }
-                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
-                            alarmManager.setExactAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
-                        }
-                        else -> alarmManager.setExact(alarmType, effectiveTrigger, pendingIntent)
-                    }
-                }
+                exact ->
+                    scheduleExactAlarm(alarmManager, alarmType, effectiveTrigger, pendingIntent)
                 else -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
                         alarmManager.setAndAllowWhileIdle(alarmType, effectiveTrigger, pendingIntent)
                     } else {
                         alarmManager.set(alarmType, effectiveTrigger, pendingIntent)

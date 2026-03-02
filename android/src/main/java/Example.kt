@@ -88,7 +88,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 context, alarmId, snoozeIntent,
                 buildPendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
             )
-            builder.addAction(android.R.drawable.ic_lock_idle_alarm, snoozeLabel, snoozePendingIntent)
+            builder.addAction(android.R.drawable.ic_menu_revert, snoozeLabel, snoozePendingIntent)
         }
 
         val notification = builder.build()

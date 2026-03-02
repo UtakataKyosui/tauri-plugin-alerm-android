@@ -50,8 +50,6 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         const val CHANNEL_ID = "tauri_alerm_channel_v2"
         const val DEFAULT_SNOOZE_DURATION_MS = 300_000L
         const val DEFAULT_SNOOZE_LABEL = "スヌーズ"
-        /** スヌーズ再スケジュール用 PendingIntent の requestCode オフセット。元のアラームと衝突しないようにする */
-        const val SNOOZE_REQUEST_CODE_OFFSET = 100_000
     }
 
     override fun load(webView: WebView) {
@@ -182,16 +180,30 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun cancelAlarm(invoke: Invoke) {
         val args = invoke.parseArgs(CancelAlarmArgs::class.java)
+        val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+        // 通常アラームの PendingIntent をキャンセル
         val intent = Intent(activity, AlarmReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(
             activity, args.id, intent,
             buildPendingIntentFlags(PendingIntent.FLAG_NO_CREATE)
         )
-        val alarmManager = activity.getSystemService(Context.ALARM_SERVICE) as AlarmManager
         if (pendingIntent != null) {
             alarmManager.cancel(pendingIntent)
             pendingIntent.cancel()
+        }
+
+        // スヌーズで再スケジュールされた PendingIntent も併せてキャンセル
+        val snoozeIntent = Intent(activity, AlarmReceiver::class.java).apply {
+            action = SNOOZE_ALARM_ACTION
+        }
+        val snoozePendingIntent = PendingIntent.getBroadcast(
+            activity, args.id, snoozeIntent,
+            buildPendingIntentFlags(PendingIntent.FLAG_NO_CREATE)
+        )
+        if (snoozePendingIntent != null) {
+            alarmManager.cancel(snoozePendingIntent)
+            snoozePendingIntent.cancel()
         }
 
         removeAlarm(activity, args.id)
