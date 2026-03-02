@@ -19,6 +19,11 @@
             android:name="com.plugin.alerm.AlarmReceiver"
             android:exported="false" />
 
+        <!-- スヌーズボタンタップ時に通知を消して再スケジュールする BroadcastReceiver -->
+        <receiver
+            android:name="com.plugin.alerm.SnoozeReceiver"
+            android:exported="false" />
+
         <!-- 端末再起動後にアラームを再スケジュールする BroadcastReceiver -->
         <receiver
             android:name="com.plugin.alerm.BootReceiver"

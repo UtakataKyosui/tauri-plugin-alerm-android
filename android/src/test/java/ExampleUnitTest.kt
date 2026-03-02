@@ -178,4 +178,40 @@ class AlermPluginUnitTest {
         val expected = trigger + 1 * interval
         assertEquals(expected, calculateEffectiveTriggerTime(trigger, interval, now))
     }
+
+    // =========================================================================
+    // clampSnoozeDuration
+    // =========================================================================
+
+    /** 正の値はそのまま返す */
+    @Test
+    fun clampSnoozeDuration_positive_returnsGivenValue() {
+        assertEquals(60_000L, clampSnoozeDuration(60_000L))
+    }
+
+    /** 1ms の最小値も正常に返す */
+    @Test
+    fun clampSnoozeDuration_oneMs_returnsOneMs() {
+        assertEquals(1L, clampSnoozeDuration(1L))
+    }
+
+    /** 0 はデフォルト値にフォールバック */
+    @Test
+    fun clampSnoozeDuration_zero_returnsDefault() {
+        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(0L))
+    }
+
+    /** 負の値はデフォルト値にフォールバック */
+    @Test
+    fun clampSnoozeDuration_negative_returnsDefault() {
+        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(-1L))
+        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(-300_000L))
+        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(Long.MIN_VALUE))
+    }
+
+    /** null はデフォルト値を返す */
+    @Test
+    fun clampSnoozeDuration_null_returnsDefault() {
+        assertEquals(AlermPlugin.DEFAULT_SNOOZE_DURATION_MS, clampSnoozeDuration(null))
+    }
 }

@@ -18,6 +18,12 @@ export interface AlarmInfo {
   repeatIntervalMs?: number
   /** アラーム音声ファイルのパス（assets 内）。未指定時はデフォルトアラーム音 */
   soundUri?: string
+  /** スヌーズを有効にするか（デフォルト: false） */
+  snoozeEnabled?: boolean
+  /** スヌーズ時間（ミリ秒）。デフォルト: 300_000（5分） */
+  snoozeDurationMs?: number
+  /** スヌーズボタンのラベル（デフォルト: "スヌーズ"） */
+  snoozeLabel?: string
 }
 
 /** Android AlarmManager のアラームタイプ */
@@ -71,6 +77,21 @@ export interface SetAlarmOptions {
    * 省略時はシステムのデフォルトアラーム音を使用する。
    */
   soundUri?: string
+  /**
+   * スヌーズを有効にするか（デフォルト: false）
+   * true の場合、通知にスヌーズボタンが表示される。
+   */
+  snoozeEnabled?: boolean
+  /**
+   * スヌーズ時間（ミリ秒）
+   * 省略時は 300_000（5分）。
+   */
+  snoozeDurationMs?: number
+  /**
+   * スヌーズボタンのラベル
+   * 省略時は "スヌーズ"。
+   */
+  snoozeLabel?: string
 }
 
 /** checkExactAlarmPermission() のレスポンス */

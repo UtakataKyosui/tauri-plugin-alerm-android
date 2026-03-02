@@ -7,6 +7,58 @@ import android.os.Build
 import org.json.JSONObject
 
 /**
+ * スヌーズ後の再スケジュールで AlarmReceiver に送る Intent のアクション。
+ * 通常アラームの PendingIntent（アクションなし）と区別するために設定し、
+ * requestCode が同一でも別の PendingIntent として扱われるようにする。
+ */
+internal const val SNOOZE_ALARM_ACTION = "com.plugin.alerm.ACTION_SNOOZE_ALARM"
+
+/**
+ * 正確なアラームをスケジュールする共通ユーティリティ。
+ * Android バージョンと権限状況に応じて適切な API を選択する。
+ * - Android 12+ (S): canScheduleExactAlarms() が false の場合は setAndAllowWhileIdle にフォールバック
+ * - Android 6+ (M): setExactAndAllowWhileIdle を使用（allowWhileIdle=true の場合）
+ * - それ以前: setExact を使用
+ *
+ * @param allowWhileIdle true の場合は Doze モード中でも発火する setExactAndAllowWhileIdle 系を使用。
+ *                       false の場合は setExact 系を使用。
+ */
+internal fun scheduleExactAlarm(
+    alarmManager: AlarmManager,
+    alarmType: Int,
+    triggerAtMs: Long,
+    pendingIntent: PendingIntent,
+    allowWhileIdle: Boolean = true,
+) {
+    when {
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+            if (alarmManager.canScheduleExactAlarms()) {
+                if (allowWhileIdle) {
+                    alarmManager.setExactAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
+                } else {
+                    alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
+                }
+            } else {
+                if (allowWhileIdle) {
+                    alarmManager.setAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
+                } else {
+                    alarmManager.set(alarmType, triggerAtMs, pendingIntent)
+                }
+            }
+        }
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
+            if (allowWhileIdle) {
+                alarmManager.setExactAndAllowWhileIdle(alarmType, triggerAtMs, pendingIntent)
+            } else {
+                alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
+            }
+        }
+        else ->
+            alarmManager.setExact(alarmType, triggerAtMs, pendingIntent)
+    }
+}
+
+/**
  * アラームタイプ名を AlarmManager の定数に変換する。
  * 不明な文字列は RTC_WAKEUP (0) をデフォルトとして返す。
  */
@@ -75,3 +127,10 @@ internal fun calculateEffectiveTriggerTime(
     val intervals = ((now - triggerAtMs) / repeatIntervalMs) + 1
     return triggerAtMs + intervals * repeatIntervalMs
 }
+/**
+ * スヌーズ持続時間のバリデーションを行い、安全な値を返す。
+ * - 1ms 以上の正の値はそのまま返す
+ * - 0 以下（負・ゼロ）または null の場合は [AlermPlugin.DEFAULT_SNOOZE_DURATION_MS] を返す
+ */
+internal fun clampSnoozeDuration(durationMs: Long?): Long =
+    durationMs?.takeIf { it > 0L } ?: AlermPlugin.DEFAULT_SNOOZE_DURATION_MS

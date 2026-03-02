@@ -19,11 +19,38 @@ import androidx.core.app.NotificationCompat
  */
 class AlarmReceiver : BroadcastReceiver() {
 
+    companion object {
+        /**
+         * 現在再生中の MediaPlayer を保持する。
+         * SnoozeReceiver からスヌーズ押下時に [stopCurrentSound] を呼び、音尌の再生を止める。
+         */
+        @Volatile
+        private var currentMediaPlayer: android.media.MediaPlayer? = null
+
+        /**
+         * 現在再生中のアラーム音を停止し、リソースを解放する。
+         * スヌーズボタンが押された際に SnoozeReceiver から呼び出す。
+         */
+        fun stopCurrentSound() {
+            currentMediaPlayer?.let { mp ->
+                runCatching {
+                    if (mp.isPlaying) mp.stop()
+                    mp.release()
+                }
+                currentMediaPlayer = null
+            }
+        }
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         val alarmId = intent.getIntExtra("alarmId", 0)
         val title = intent.getStringExtra("title") ?: "Alarm"
         val message = intent.getStringExtra("message") ?: ""
         val soundUri = intent.getStringExtra("soundUri")
+        val alarmType = intent.getStringExtra("alarmType") ?: "RTC_WAKEUP"
+        val snoozeEnabled = intent.getBooleanExtra("snoozeEnabled", false)
+        val snoozeDurationMs = intent.getLongExtra("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
+        val snoozeLabel = intent.getStringExtra("snoozeLabel") ?: AlermPlugin.DEFAULT_SNOOZE_LABEL
 
         // Android 8+ では通知チャンネルが必要
         // 音声は MediaPlayer で管理するため、チャンネルの通知音はサイレントにして二重鳴動を防ぐ
@@ -59,14 +86,35 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.getActivity(context, alarmId, it, flags)
         }
 
-        val notification = NotificationCompat.Builder(context, AlermPlugin.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, AlermPlugin.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .apply { if (contentPendingIntent != null) setContentIntent(contentPendingIntent) }
-            .build()
+
+        // スヌーズボタン追加
+        if (snoozeEnabled) {
+            val snoozeIntent = Intent(context, SnoozeReceiver::class.java).apply {
+                putExtra("alarmId", alarmId)
+                putExtra("title", title)
+                putExtra("message", message)
+                putExtra("alarmType", alarmType)
+                putExtra("snoozeDurationMs", snoozeDurationMs)
+                putExtra("snoozeEnabled", true)
+                putExtra("snoozeLabel", snoozeLabel)
+                if (soundUri != null) putExtra("soundUri", soundUri)
+            }
+            // SnoozeReceiver は AlarmReceiver とは別コンポーネントのため、同じ requestCode でも衝突しない
+            val snoozePendingIntent = PendingIntent.getBroadcast(
+                context, alarmId, snoozeIntent,
+                buildPendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
+            )
+            builder.addAction(android.R.drawable.ic_menu_revert, snoozeLabel, snoozePendingIntent)
+        }
+
+        val notification = builder.build()
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(alarmId, notification)
@@ -82,21 +130,26 @@ class AlarmReceiver : BroadcastReceiver() {
      * @param onErrorFallback エラー発生時のフォールバック処理（省略可）
      */
     private fun playSound(
-        dataSourceProvider: (MediaPlayer) -> Unit,
+        dataSourceProvider: (android.media.MediaPlayer) -> Unit,
         onErrorFallback: (() -> Unit)? = null,
     ) {
-        val mediaPlayer = MediaPlayer()
+        val mediaPlayer = android.media.MediaPlayer()
+        currentMediaPlayer = mediaPlayer
         try {
             mediaPlayer.apply {
                 setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_ALARM)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    android.media.AudioAttributes.Builder()
+                        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
                         .build()
                 )
-                setOnCompletionListener { it.release() }
+                setOnCompletionListener {
+                    it.release()
+                    if (currentMediaPlayer === it) currentMediaPlayer = null
+                }
                 setOnErrorListener { mp, _, _ ->
                     mp.release()
+                    if (currentMediaPlayer === mp) currentMediaPlayer = null
                     onErrorFallback?.invoke()
                     true
                 }
@@ -106,6 +159,7 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         } catch (e: Exception) {
             mediaPlayer.release()
+            if (currentMediaPlayer === mediaPlayer) currentMediaPlayer = null
             onErrorFallback?.invoke()
         }
     }
