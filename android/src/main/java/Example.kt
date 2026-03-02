@@ -26,8 +26,8 @@ class AlarmReceiver : BroadcastReceiver() {
         val soundUri = intent.getStringExtra("soundUri")
         val alarmType = intent.getStringExtra("alarmType") ?: "RTC_WAKEUP"
         val snoozeEnabled = intent.getBooleanExtra("snoozeEnabled", false)
-        val snoozeDurationMs = intent.getLongExtra("snoozeDurationMs", 300_000L)
-        val snoozeLabel = intent.getStringExtra("snoozeLabel") ?: "スヌーズ"
+        val snoozeDurationMs = intent.getLongExtra("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
+        val snoozeLabel = intent.getStringExtra("snoozeLabel") ?: AlermPlugin.DEFAULT_SNOOZE_LABEL
 
         // Android 8+ では通知チャンネルが必要
         // 音声は MediaPlayer で管理するため、チャンネルの通知音はサイレントにして二重鳴動を防ぐ
@@ -83,9 +83,9 @@ class AlarmReceiver : BroadcastReceiver() {
                 putExtra("snoozeLabel", snoozeLabel)
                 if (soundUri != null) putExtra("soundUri", soundUri)
             }
-            val snoozeRequestCode = alarmId + 100_000
+            // SnoozeReceiver は AlarmReceiver とは別コンポーネントのため、同じ requestCode でも衝突しない
             val snoozePendingIntent = PendingIntent.getBroadcast(
-                context, snoozeRequestCode, snoozeIntent,
+                context, alarmId, snoozeIntent,
                 buildPendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
             )
             builder.addAction(android.R.drawable.ic_lock_idle_alarm, snoozeLabel, snoozePendingIntent)

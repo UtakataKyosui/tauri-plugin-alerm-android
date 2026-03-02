@@ -48,6 +48,10 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         const val PREFS_NAME = "tauri_alerm_alarms"
         // v2: setSound(null, null) を反映するためチャンネル ID を変更（Android は既存チャンネルの設定変更を無視するため）
         const val CHANNEL_ID = "tauri_alerm_channel_v2"
+        const val DEFAULT_SNOOZE_DURATION_MS = 300_000L
+        const val DEFAULT_SNOOZE_LABEL = "スヌーズ"
+        /** スヌーズ再スケジュール用 PendingIntent の requestCode オフセット。元のアラームと衝突しないようにする */
+        const val SNOOZE_REQUEST_CODE_OFFSET = 100_000
     }
 
     override fun load(webView: WebView) {
@@ -83,8 +87,8 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         val repeatIntervalMs = args.repeatIntervalMs
 
         val snoozeEnabled = args.snoozeEnabled ?: false
-        val snoozeDurationMs = args.snoozeDurationMs ?: 300_000L
-        val snoozeLabel = args.snoozeLabel ?: "スヌーズ"
+        val snoozeDurationMs = args.snoozeDurationMs ?: DEFAULT_SNOOZE_DURATION_MS
+        val snoozeLabel = args.snoozeLabel ?: DEFAULT_SNOOZE_LABEL
         val intent = Intent(activity, AlarmReceiver::class.java).apply {
             putExtra("alarmId", args.id)
             putExtra("title", args.title)

@@ -36,15 +36,23 @@ class BootReceiver : BroadcastReceiver() {
 
             val title = alarm.optString("title", "Alarm")
             val message = alarm.optString("message", "")
-            val alarmType = parseAlarmType(alarm.optString("alarmType", "RTC_WAKEUP"))
+            val alarmTypeName = alarm.optString("alarmType", "RTC_WAKEUP")
+            val alarmType = parseAlarmType(alarmTypeName)
             val exact = alarm.optBoolean("exact", true)
             val soundUri = alarm.optString("soundUri", null)
+            val snoozeEnabled = alarm.optBoolean("snoozeEnabled", false)
+            val snoozeDurationMs = alarm.optLong("snoozeDurationMs", AlermPlugin.DEFAULT_SNOOZE_DURATION_MS)
+            val snoozeLabel = alarm.optString("snoozeLabel", AlermPlugin.DEFAULT_SNOOZE_LABEL)
 
             val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra("alarmId", id)
                 putExtra("title", title)
                 putExtra("message", message)
+                putExtra("alarmType", alarmTypeName)
                 if (soundUri != null) putExtra("soundUri", soundUri)
+                putExtra("snoozeEnabled", snoozeEnabled)
+                putExtra("snoozeDurationMs", snoozeDurationMs)
+                putExtra("snoozeLabel", snoozeLabel)
             }
             val pendingIntent = PendingIntent.getBroadcast(
                 context, id, alarmIntent,
