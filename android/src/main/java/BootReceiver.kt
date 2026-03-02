@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 /**
  * 端末再起動後にアラームを復元する BroadcastReceiver。
  * AlarmManager のアラームはデバイス再起動で消えるため、
