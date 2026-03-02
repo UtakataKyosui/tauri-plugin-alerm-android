@@ -24,6 +24,10 @@ class AlarmReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra("title") ?: "Alarm"
         val message = intent.getStringExtra("message") ?: ""
         val soundUri = intent.getStringExtra("soundUri")
+        val alarmType = intent.getStringExtra("alarmType") ?: "RTC_WAKEUP"
+        val snoozeEnabled = intent.getBooleanExtra("snoozeEnabled", false)
+        val snoozeDurationMs = intent.getLongExtra("snoozeDurationMs", 300_000L)
+        val snoozeLabel = intent.getStringExtra("snoozeLabel") ?: "スヌーズ"
 
         // Android 8+ では通知チャンネルが必要
         // 音声は MediaPlayer で管理するため、チャンネルの通知音はサイレントにして二重鳴動を防ぐ
@@ -59,14 +63,35 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.getActivity(context, alarmId, it, flags)
         }
 
-        val notification = NotificationCompat.Builder(context, AlermPlugin.CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, AlermPlugin.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .apply { if (contentPendingIntent != null) setContentIntent(contentPendingIntent) }
-            .build()
+
+        // スヌーズボタン追加
+        if (snoozeEnabled) {
+            val snoozeIntent = Intent(context, SnoozeReceiver::class.java).apply {
+                putExtra("alarmId", alarmId)
+                putExtra("title", title)
+                putExtra("message", message)
+                putExtra("alarmType", alarmType)
+                putExtra("snoozeDurationMs", snoozeDurationMs)
+                putExtra("snoozeEnabled", true)
+                putExtra("snoozeLabel", snoozeLabel)
+                if (soundUri != null) putExtra("soundUri", soundUri)
+            }
+            val snoozeRequestCode = alarmId + 100_000
+            val snoozePendingIntent = PendingIntent.getBroadcast(
+                context, snoozeRequestCode, snoozeIntent,
+                buildPendingIntentFlags(PendingIntent.FLAG_UPDATE_CURRENT)
+            )
+            builder.addAction(android.R.drawable.ic_lock_idle_alarm, snoozeLabel, snoozePendingIntent)
+        }
+
+        val notification = builder.build()
 
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(alarmId, notification)

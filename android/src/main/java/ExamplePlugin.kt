@@ -31,6 +31,9 @@ class SetAlarmArgs {
     var allowWhileIdle: Boolean? = null
     var repeatIntervalMs: Long? = null
     var soundUri: String? = null
+    var snoozeEnabled: Boolean? = null
+    var snoozeDurationMs: Long? = null
+    var snoozeLabel: String? = null
 }
 
 @InvokeArg
@@ -79,11 +82,18 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         val triggerAtMs = args.triggerAtMs
         val repeatIntervalMs = args.repeatIntervalMs
 
+        val snoozeEnabled = args.snoozeEnabled ?: false
+        val snoozeDurationMs = args.snoozeDurationMs ?: 300_000L
+        val snoozeLabel = args.snoozeLabel ?: "スヌーズ"
         val intent = Intent(activity, AlarmReceiver::class.java).apply {
             putExtra("alarmId", args.id)
             putExtra("title", args.title)
             putExtra("message", args.message ?: "")
             if (args.soundUri != null) putExtra("soundUri", args.soundUri)
+            putExtra("snoozeEnabled", snoozeEnabled)
+            putExtra("snoozeDurationMs", snoozeDurationMs)
+            putExtra("snoozeLabel", snoozeLabel)
+            putExtra("alarmType", alarmTypeName)
         }
         val pendingIntent = PendingIntent.getBroadcast(
             activity, args.id, intent,
@@ -144,6 +154,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             put("exact", exact)
             put("repeatIntervalMs", repeatIntervalMs)
             put("soundUri", args.soundUri)
+            put("snoozeEnabled", snoozeEnabled)
+            put("snoozeDurationMs", snoozeDurationMs)
+            put("snoozeLabel", snoozeLabel)
         }
         saveAlarm(activity, args.id, alarmInfo)
 
@@ -156,6 +169,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
         ret.put("exact", exact)
         if (repeatIntervalMs != null) ret.put("repeatIntervalMs", repeatIntervalMs)
         if (args.soundUri != null) ret.put("soundUri", args.soundUri)
+        ret.put("snoozeEnabled", snoozeEnabled)
+        ret.put("snoozeDurationMs", snoozeDurationMs)
+        ret.put("snoozeLabel", snoozeLabel)
         invoke.resolve(ret)
     }
 
@@ -192,6 +208,9 @@ class AlermPlugin(private val activity: Activity) : Plugin(activity) {
             obj.put("exact", alarm.getBoolean("exact"))
             if (!alarm.isNull("repeatIntervalMs")) obj.put("repeatIntervalMs", alarm.getLong("repeatIntervalMs"))
             if (!alarm.isNull("soundUri")) obj.put("soundUri", alarm.getString("soundUri"))
+            if (!alarm.isNull("snoozeEnabled")) obj.put("snoozeEnabled", alarm.getBoolean("snoozeEnabled"))
+            if (!alarm.isNull("snoozeDurationMs")) obj.put("snoozeDurationMs", alarm.getLong("snoozeDurationMs"))
+            if (!alarm.isNull("snoozeLabel")) obj.put("snoozeLabel", alarm.getString("snoozeLabel"))
             arr.put(obj)
         }
         val ret = JSObject()
